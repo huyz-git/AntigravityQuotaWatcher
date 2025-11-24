@@ -55,7 +55,7 @@ export async function activate(context: vscode.ExtensionContext) {
   // Ensure port and CSRF token are available
   if (!detectedPort || !detectedCsrfToken) {
     console.error('Missing port or CSRF Token, extension cannot start');
-    console.error('Please ensure language_server_windows_x64.exe is running');
+    console.error('Please ensure Antigravity language server is running');
     statusBarService.showError('检测失败');
     statusBarService.show();
 

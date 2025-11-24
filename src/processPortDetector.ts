@@ -1,11 +1,13 @@
 /**
  * Process-based port detector.
  * Reads Antigravity Language Server command line args to extract ports and CSRF token.
+ * Uses platform-specific strategies for cross-platform support.
  */
 
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as https from 'https';
+import { PlatformDetector, IPlatformStrategy } from './platformDetector';
 
 const execAsync = promisify(exec);
 
@@ -18,39 +20,42 @@ export interface AntigravityProcessInfo {
 }
 
 export class ProcessPortDetector {
+  private platformDetector: PlatformDetector;
+  private platformStrategy: IPlatformStrategy;
+  private processName: string;
+
+  constructor() {
+    this.platformDetector = new PlatformDetector();
+    this.platformStrategy = this.platformDetector.getStrategy();
+    this.processName = this.platformDetector.getProcessName();
+  }
+
   /**
    * Detect credentials (ports + CSRF token) from the running process.
    * @param maxRetries Maximum number of retry attempts (default: 3)
    * @param retryDelay Delay between retries in milliseconds (default: 2000)
    */
   async detectProcessInfo(maxRetries: number = 3, retryDelay: number = 2000): Promise<AntigravityProcessInfo | null> {
+    const platformName = this.platformDetector.getPlatformName();
+    const errorMessages = this.platformStrategy.getErrorMessages();
+
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`🔍 尝试检测 Antigravity 进程 (第 ${attempt}/${maxRetries} 次)...`);
+        console.log(`🔍 尝试检测 Antigravity 进程 (${platformName}, 第 ${attempt}/${maxRetries} 次)...`);
 
-        // Fetch full command line for the language server process.
-        const { stdout } = await execAsync(
-          'wmic process where "name=\'language_server_windows_x64.exe\'" get ProcessId,CommandLine /format:list',
-          { timeout: 5000 }
-        );
+        // Fetch full command line for the language server process using platform-specific command
+        const command = this.platformStrategy.getProcessListCommand(this.processName);
+        const { stdout } = await execAsync(command, { timeout: 5000 });
 
-        const portMatch = stdout.match(/--extension_server_port[=\s]+(\d+)/);
-        const tokenMatch = stdout.match(/--csrf_token[=\s]+([a-f0-9\-]+)/i);
-        const pidMatch = stdout.match(/ProcessId=(\d+)/);
+        // Parse process info using platform-specific parser
+        const processInfo = this.platformStrategy.parseProcessInfo(stdout);
 
-        if (!pidMatch || !pidMatch[1]) {
-          console.warn(`⚠️ 第 ${attempt} 次尝试: 未找到进程 PID`);
-          throw new Error('未找到 language_server 进程');
+        if (!processInfo) {
+          console.warn(`⚠️ 第 ${attempt} 次尝试: ${errorMessages.processNotFound}`);
+          throw new Error(errorMessages.processNotFound);
         }
 
-        if (!tokenMatch || !tokenMatch[1]) {
-          console.warn(`⚠️ 第 ${attempt} 次尝试: 未找到 CSRF Token`);
-          throw new Error('未找到 CSRF Token');
-        }
-
-        const pid = parseInt(pidMatch[1], 10);
-        const extensionPort = portMatch && portMatch[1] ? parseInt(portMatch[1], 10) : 0;
-        const csrfToken = tokenMatch[1];
+        const { pid, extensionPort, csrfToken } = processInfo;
 
         console.log(`✅ 找到进程信息:`);
         console.log(`   PID: ${pid}`);
@@ -90,7 +95,7 @@ export class ProcessPortDetector {
         if (errorMsg.includes('timeout')) {
           console.error('   原因: 命令执行超时,系统可能负载较高');
         } else if (errorMsg.includes('not found') || errorMsg.includes('not recognized')) {
-          console.error('   原因: wmic 命令不可用,请检查系统环境');
+          console.error(`   原因: ${errorMessages.commandNotAvailable}`);
         }
       }
 
@@ -103,9 +108,9 @@ export class ProcessPortDetector {
 
     console.error(`❌ 所有 ${maxRetries} 次尝试均失败`);
     console.error('   请确保:');
-    console.error('   1. Antigravity 正在运行');
-    console.error('   2. language_server_windows_x64.exe 进程存在');
-    console.error('   3. 系统有足够权限执行 wmic 和 netstat 命令');
+    errorMessages.requirements.forEach((req, index) => {
+      console.error(`   ${index + 1}. ${req}`);
+    });
 
     return null;
   }
@@ -115,25 +120,12 @@ export class ProcessPortDetector {
    */
   private async getProcessListeningPorts(pid: number): Promise<number[]> {
     try {
-      const { stdout } = await execAsync(
-        `netstat -ano | findstr "${pid}" | findstr "LISTENING"`,
-        { timeout: 3000 }
-      );
+      const command = this.platformStrategy.getPortListCommand(pid);
+      const { stdout } = await execAsync(command, { timeout: 3000 });
 
-      // 解析 netstat 输出，提取端口号
-      // 格式: TCP    127.0.0.1:2873         0.0.0.0:0              LISTENING       4412
-      const portRegex = /127\.0\.0\.1:(\d+)\s+0\.0\.0\.0:0\s+LISTENING/g;
-      const ports: number[] = [];
-      let match;
-
-      while ((match = portRegex.exec(stdout)) !== null) {
-        const port = parseInt(match[1], 10);
-        if (!ports.includes(port)) {
-          ports.push(port);
-        }
-      }
-
-      return ports.sort((a, b) => a - b); // 按端口号排序
+      // Parse ports using platform-specific parser
+      const ports = this.platformStrategy.parseListeningPorts(stdout);
+      return ports;
     } catch (error) {
       console.error('获取监听端口失败:', error);
       return [];

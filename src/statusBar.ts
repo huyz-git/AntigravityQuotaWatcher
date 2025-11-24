@@ -121,7 +121,7 @@ export class StatusBarService {
   }
 
   private updateTooltip(snapshot: QuotaSnapshot): void {
-    const lines: string[] = ['Antigravity 模型配额信息', '[点击状态栏可手动刷新配额]', ''];
+    const lines: string[] = ['Antigravity 模型配额信息', ''];
 
     if (this.showPromptCredits && snapshot.promptCredits) {
       lines.push('💳 Prompt Credits');
