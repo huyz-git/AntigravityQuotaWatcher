@@ -15,9 +15,9 @@
 
 一个用于监控 Antigravity AI 模型使用配额的 VS Code 插件，配额信息在底部状态栏显示。
 
-![Demo 1](demo1.png)
+![Demo 1](https://raw.githubusercontent.com/wusimpl/AntigravityQuotaWatcher/main/images/demo1.png)
 
-![Demo 2](demo2.png)
+![Demo 2](https://raw.githubusercontent.com/wusimpl/AntigravityQuotaWatcher/main/images/demo2.png)
 
 ##  功能特点
 
@@ -62,7 +62,7 @@
 
 [下载插件](https://github.com/wusimpl/AntigravityQuotaWatcher/releases/tag/V0.6.5)，然后安装插件，重启 Antigravity
 
- ![Installation](install.png)
+![Installation](https://raw.githubusercontent.com/wusimpl/AntigravityQuotaWatcher/main/images/install.png)
 
 ### 命令面板
 

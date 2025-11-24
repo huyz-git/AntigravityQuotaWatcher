@@ -18,6 +18,13 @@ DESIGN.md
 *.md
 !README.md
 
+# 图片资源（托管在 GitHub，不需要打包）
+images/**
+*.png
+*.jpg
+*.gif
+!icon.png
+
 # 调试文件
 **/*.map
 
