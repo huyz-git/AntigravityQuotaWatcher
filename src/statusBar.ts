@@ -264,7 +264,9 @@ export class StatusBarService {
   showError(message: string): void {
     this.statusBarItem.text = '$(error) Antigravity Quota Watcher: Error';
     this.statusBarItem.backgroundColor = new vscode.ThemeColor('statusBarItem.errorBackground');
-    this.statusBarItem.tooltip = message;
+    this.statusBarItem.tooltip = `${message}\n\n点击此处重试获取配额`;
+    // 修改命令为刷新配额
+    this.statusBarItem.command = 'antigravity-quota-watcher.refreshQuota';
     this.statusBarItem.show();
   }
 

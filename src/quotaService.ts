@@ -93,6 +93,35 @@ export class QuotaService {
     }
   }
 
+  /**
+   * 手动重试获取配额(重置所有状态,重新开始完整流程)
+   * 成功后会自动恢复轮询
+   */
+  async retryFromError(pollingInterval: number): Promise<void> {
+    console.log('手动重试获取配额,重新开始完整流程...');
+    // 重置所有错误计数和状态
+    this.consecutiveErrors = 0;
+    this.retryCount = 0;
+    this.isRetrying = false;
+    this.isFirstAttempt = true;
+
+    // 先停止现有轮询
+    this.stopPolling();
+
+    // 执行一次获取,如果成功会自动开启轮询
+    await this.fetchQuota();
+
+    // 如果获取成功(consecutiveErrors为0),启动轮询
+    if (this.consecutiveErrors === 0) {
+      console.log('获取成功,启动轮询...');
+      this.pollingInterval = setInterval(() => {
+        this.fetchQuota();
+      }, pollingInterval);
+    } else {
+      console.log('获取失败,保持停止状态');
+    }
+  }
+
   private async fetchQuota(): Promise<void> {
     // 如果正在重试中，跳过本次调用
     if (this.isRetrying) {

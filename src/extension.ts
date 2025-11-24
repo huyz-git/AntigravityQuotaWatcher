@@ -138,18 +138,25 @@ export async function activate(context: vscode.ExtensionContext) {
   const refreshQuotaCommand = vscode.commands.registerCommand(
     'antigravity-quota-watcher.refreshQuota',
     async () => {
-      vscode.window.showInformationMessage('Refreshing quota...');
+      if (!quotaService) {
+        vscode.window.showWarningMessage('配额服务未初始化');
+        return;
+      }
+
+      vscode.window.showInformationMessage('🔄 重新获取配额中...');
       config = configService!.getConfig();
       statusBarService?.setWarningThreshold(config.warningThreshold);
       statusBarService?.setCriticalThreshold(config.criticalThreshold);
       statusBarService?.setShowPromptCredits(config.showPromptCredits);
       statusBarService?.setDisplayStyle(config.displayStyle);
-      if (config.enabled && quotaService) {
-        quotaService.stopPolling();
+      statusBarService?.showFetching();
+
+      if (config.enabled) {
         quotaService.setApiMethod(config.apiMethod === 'COMMAND_MODEL_CONFIG'
           ? QuotaApiMethod.COMMAND_MODEL_CONFIG
           : QuotaApiMethod.GET_USER_STATUS);
-        quotaService.startPolling(config.pollingInterval);
+        // 使用新的重试方法,成功后会自动恢复轮询
+        await quotaService.retryFromError(config.pollingInterval);
       }
     }
   );
